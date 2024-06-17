@@ -1,22 +1,61 @@
 from abc import ABC, abstractmethod
 import requests
+from src.work_with_vacancies import Vacancy
 
 
-class FromAPI(ABC):
-    '''Абстрактный класс для с API сервиса с вакансиями'''
+class GetVacancies(ABC):
+    """Абстрактный класс для метода получения вакансий"""
+
     @abstractmethod
-    def getting_vacancies(self, *args, **kwargs):
+    def get_vacancies(self, name_job, pages):
         pass
 
 
- class GettingVacancies(FromAPI):
-     '''Класс для работы с вакансиями'''
-     def __init__(self, base_url='https://api.hh.ru/vacancies'):
-         self.base_url = base_url
+class JSONABCSaver(ABC):
+    """
+    Запись полученных вакансий в файл json и чтение
+    """
 
-     def getting_vacancies(self, search_vacancies):
-         '''Загружает вакансии с url по запросу пользователя'''
-         params = {"text": search_vacancies, "area": 102}
-         response = requests.get(self.base_url, params=params)
-         return response.json()
+    @abstractmethod
+    def file_writer(self):
+        pass
+
+    @abstractmethod
+    def file_reader(self):
+        pass
+
+
+class HeadHunterAPI(GetVacancies):
+    """Класс для подключения к сайту HH.ru"""
+    def get_vacancies(self, name_job, pages):
+        hh_list = []
+
+        for i in range(pages):
+            params = {
+                'text': name_job,
+                'per_page': '5',
+                'page': i
+            }
+
+            response = requests.get('http://api.hh.ru/vacancies', params=params)
+            response_json = response.json()
+
+            for j in response_json['items']:
+                hh_title = j['name']
+                if not (j['area'] is None):
+                    hh_town = j['area']['name']
+                else:
+                    hh_town = None
+                if not ((j['salary'] is None) or (j['salary']['from'] is None)):
+                    salary_from = j['salary']['from']
+                    salary_to = j['salary']['to']
+                else:
+                    salary_from = 0
+                    salary_to = 0
+                hh_employment = j['employment']['name']
+                hh_url = j['alternate_url']
+
+                hh_vacancy = Vacancy(hh_title, hh_town, salary_from, salary_to, hh_employment, hh_url)
+                hh_list.append(hh_vacancy)
+        return hh_list
 
